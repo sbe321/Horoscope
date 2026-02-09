@@ -64,7 +64,12 @@ async def fetch_rooster_horoscope():
                             '$1 Psychic Reading',
                             'Chinese HoroscopeUnpack what Year of the Dragon',
                             'From your love life to career and finances',
-                            'no topic is off-limits in this report'
+                            'no topic is off-limits in this report',
+                            'and personality with your',
+                            'Capricorn',
+                            'Rooster',
+                            'premium',
+                            'Birth Chart'
                         ]
                         
                         # Clean the text
@@ -74,12 +79,15 @@ async def fetch_rooster_horoscope():
                         # Find the date pattern and extract text after it
                         # Pattern: "Feb 9, 2026- " or similar
                         import re
-                        match = re.search(r'[A-Z][a-z]{2}\s+\d{1,2},\s+\d{4}\s*-\s*(.+?)(?:Discover|More|Sun Sign|$)', text, re.DOTALL)
+                        match = re.search(r'[A-Z][a-z]{2}\s+\d{1,2},\s+\d{4}\s*-\s*(.+?)(?:Discover|More|Sun Sign|and personality|premium|$)', text, re.DOTALL)
                         
                         if match:
                             horoscope_text = match.group(1).strip()
                             # Remove any remaining junk at the end
-                            horoscope_text = re.sub(r'(Discover|More Horoscopes|Sun Sign|Love|Career).*$', '', horoscope_text, flags=re.DOTALL)
+                            horoscope_text = re.sub(r'(Discover|More Horoscopes|Sun Sign|Love|Career|and personality|premium|Birth Chart|\.$\s*.+).*$', '', horoscope_text, flags=re.DOTALL)
+                            # Clean up extra periods and spaces
+                            horoscope_text = re.sub(r'\s+', ' ', horoscope_text)
+                            horoscope_text = re.sub(r'\.+', '.', horoscope_text)
                             return horoscope_text.strip()
                     
                     # Fallback: look for paragraphs
@@ -87,7 +95,7 @@ async def fetch_rooster_horoscope():
                     for p in paragraphs:
                         text = p.get_text(strip=True)
                         # Look for horoscope-like text (complete sentences, reasonable length)
-                        if 100 < len(text) < 500 and '.' in text and not any(junk in text for junk in ['Sign up', 'Click here', 'Read more', '$']):
+                        if 100 < len(text) < 500 and '.' in text and not any(junk in text for junk in ['Sign up', 'Click here', 'Read more', '$', 'premium']):
                             return text
                     
                     return None
