@@ -1,4 +1,4 @@
-import discord
+iimport discord
 from discord.ext import commands, tasks
 import aiohttp
 from bs4 import BeautifulSoup
@@ -44,17 +44,50 @@ async def fetch_rooster_horoscope():
                     html = await response.text()
                     soup = BeautifulSoup(html, 'html.parser')
                     
-                    # Find the horoscope text (the main content div)
-                    horoscope_div = soup.find('div', class_='main-horoscope')
-                    if horoscope_div:
-                        horoscope_text = horoscope_div.get_text(strip=True)
-                        return horoscope_text
+                    # Look for the horoscope content - it's usually in a specific paragraph
+                    # Try to find the main content area first
+                    content_area = soup.find('div', class_='main-horoscope')
                     
-                    # Alternative: try to find paragraph with horoscope
+                    if content_area:
+                        # Get all text and clean it
+                        text = content_area.get_text(separator=' ', strip=True)
+                        
+                        # Remove common junk phrases
+                        junk_phrases = [
+                            'YesterdayTodayTomorrowWeekly',
+                            'Weekly2026',
+                            'Discover the key to your unique life path',
+                            'premium Birth Chart',
+                            'More Horoscopes for',
+                            'Sun SignLoveCareerMoneyHealthChineseTarotNumerologyPlanetsFree',
+                            'Love MatchFree Birth Chart',
+                            '$1 Psychic Reading',
+                            'Chinese HoroscopeUnpack what Year of the Dragon',
+                            'From your love life to career and finances',
+                            'no topic is off-limits in this report'
+                        ]
+                        
+                        # Clean the text
+                        for junk in junk_phrases:
+                            text = text.replace(junk, '')
+                        
+                        # Find the date pattern and extract text after it
+                        # Pattern: "Feb 9, 2026- " or similar
+                        import re
+                        match = re.search(r'[A-Z][a-z]{2}\s+\d{1,2},\s+\d{4}\s*-\s*(.+?)(?:Discover|More|Sun Sign|$)', text, re.DOTALL)
+                        
+                        if match:
+                            horoscope_text = match.group(1).strip()
+                            # Remove any remaining junk at the end
+                            horoscope_text = re.sub(r'(Discover|More Horoscopes|Sun Sign|Love|Career).*$', '', horoscope_text, flags=re.DOTALL)
+                            return horoscope_text.strip()
+                    
+                    # Fallback: look for paragraphs
                     paragraphs = soup.find_all('p')
                     for p in paragraphs:
                         text = p.get_text(strip=True)
-                        if len(text) > 100:  # Horoscopes are usually longer
+                        # Look for horoscope-like text (complete sentences, reasonable length)
+                        if 100 < len(text) < 500 and '.' in text and not any(junk in text for junk in ['Sign up', 'Click here', 'Read more', '$']):
                             return text
                     
                     return None
