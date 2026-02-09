@@ -172,9 +172,10 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 if os.getenv('CHANNEL_ID'):
     CHANNEL_ID = int(os.getenv('CHANNEL_ID'))
 
-if __name__ == '__main__':
-    if TOKEN is None:
-        print("ERROR: DISCORD_TOKEN not found in environment variables!")
-        print("Please set your Discord bot token in the .env file")
-    else:
-        bot.run(TOKEN)
+# Check token and run bot
+if TOKEN is None:
+    print("ERROR: DISCORD_TOKEN not found in environment variables!")
+    print("Please set your Discord bot token in the .env file")
+else:
+    print(f"Starting Discord bot...")
+    bot.run(TOKEN)
