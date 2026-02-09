@@ -1,4 +1,4 @@
-py-cord==2.6.1
+discord.py @ git+https://github.com/Rapptz/discord.py@master
 aiohttp==3.9.1
 beautifulsoup4==4.12.2
 pytz==2023.3
