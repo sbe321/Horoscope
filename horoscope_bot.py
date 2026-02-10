@@ -34,77 +34,94 @@ CHANNEL_ID = None  # Replace with your actual channel ID
 
 
 async def fetch_rooster_horoscope():
-    """Fetch the Rooster horoscope from horoscope.com"""
-    url = "https://www.horoscope.com/us/horoscopes/chinese/horoscope-chinese-daily-today.aspx?sign=10"
+    """Fetch the Rooster horoscope from horoscope.com - intelligently chooses today or tomorrow based on timezone"""
+    import re
     
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as response:
-                if response.status == 200:
-                    html = await response.text()
-                    soup = BeautifulSoup(html, 'html.parser')
-                    
-                    # Look for the horoscope content - it's usually in a specific paragraph
-                    # Try to find the main content area first
-                    content_area = soup.find('div', class_='main-horoscope')
-                    
-                    if content_area:
-                        # Get all text and clean it
-                        text = content_area.get_text(separator=' ', strip=True)
+    # Get current date in Norway
+    norway_now = datetime.now(NORWAY_TZ)
+    target_date = norway_now.strftime("%b %d, %Y")  # e.g., "Feb 09, 2026"
+    
+    # Try both URLs - today first, then tomorrow if date doesn't match
+    urls = [
+        "https://www.horoscope.com/us/horoscopes/chinese/horoscope-chinese-daily-today.aspx?sign=10",
+        "https://www.horoscope.com/us/horoscopes/chinese/horoscope-chinese-daily-tomorrow.aspx?sign=10"
+    ]
+    
+    for url in urls:
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as response:
+                    if response.status == 200:
+                        html = await response.text()
+                        soup = BeautifulSoup(html, 'html.parser')
                         
-                        # Remove common junk phrases
-                        junk_phrases = [
-                            'YesterdayTodayTomorrowWeekly',
-                            'Weekly2026',
-                            'Discover the key to your unique life path',
-                            'premium Birth Chart',
-                            'More Horoscopes for',
-                            'Sun SignLoveCareerMoneyHealthChineseTarotNumerologyPlanetsFree',
-                            'Love MatchFree Birth Chart',
-                            '$1 Psychic Reading',
-                            'Chinese HoroscopeUnpack what Year of the Dragon',
-                            'From your love life to career and finances',
-                            'no topic is off-limits in this report',
-                            'and personality with your',
-                            'Capricorn',
-                            'Rooster',
-                            'premium',
-                            'Birth Chart'
-                        ]
+                        # Get all text from main horoscope area
+                        content_area = soup.find('div', class_='main-horoscope')
                         
-                        # Clean the text
-                        for junk in junk_phrases:
-                            text = text.replace(junk, '')
+                        if content_area:
+                            text = content_area.get_text(separator=' ', strip=True)
+                            
+                            # Check if this page has the date we want
+                            # Look for pattern like "Feb 9, 2026" or "Feb 09, 2026"
+                            date_pattern = r'([A-Z][a-z]{2})\s+(\d{1,2}),\s+(\d{4})'
+                            date_match = re.search(date_pattern, text)
+                            
+                            if date_match:
+                                page_date = f"{date_match.group(1)} {int(date_match.group(2)):02d}, {date_match.group(3)}"
+                                print(f"Page date: {page_date}, Target date: {target_date}")
+                                
+                                # Check if the dates match
+                                if page_date == target_date or date_match.group(0) == target_date.replace(" 0", " "):
+                                    # This is the right page! Extract the horoscope
+                                    
+                                    # Remove common junk phrases
+                                    junk_phrases = [
+                                        'YesterdayTodayTomorrowWeekly',
+                                        'Weekly2026',
+                                        'Discover the key to your unique life path',
+                                        'premium Birth Chart',
+                                        'More Horoscopes for',
+                                        'Sun SignLoveCareerMoneyHealthChineseTarotNumerologyPlanetsFree',
+                                        'Love MatchFree Birth Chart',
+                                        '$1 Psychic Reading',
+                                        'Chinese HoroscopeUnpack what Year of the Dragon',
+                                        'From your love life to career and finances',
+                                        'no topic is off-limits in this report',
+                                        'and personality with your',
+                                        'Capricorn',
+                                        'Rooster',
+                                        'premium',
+                                        'Birth Chart'
+                                    ]
+                                    
+                                    # Clean the text
+                                    for junk in junk_phrases:
+                                        text = text.replace(junk, '')
+                                    
+                                    # Extract horoscope text after the date
+                                    horoscope_match = re.search(r'[A-Z][a-z]{2}\s+\d{1,2},\s+\d{4}\s*-\s*(.+?)(?:Discover|More|Sun Sign|and personality|premium|$)', text, re.DOTALL)
+                                    
+                                    if horoscope_match:
+                                        horoscope_text = horoscope_match.group(1).strip()
+                                        # Remove any remaining junk at the end
+                                        horoscope_text = re.sub(r'(Discover|More Horoscopes|Sun Sign|Love|Career|and personality|premium|Birth Chart|\.$\s*.+).*$', '', horoscope_text, flags=re.DOTALL)
+                                        # Clean up extra periods and spaces
+                                        horoscope_text = re.sub(r'\s+', ' ', horoscope_text)
+                                        horoscope_text = re.sub(r'\.+', '.', horoscope_text)
+                                        print(f"✅ Found correct horoscope for {target_date}")
+                                        return horoscope_text.strip()
+                            
+                            # If we get here, the date didn't match, try next URL
+                            print(f"Date mismatch on {url}, trying next URL...")
+                            continue
                         
-                        # Find the date pattern and extract text after it
-                        # Pattern: "Feb 9, 2026- " or similar
-                        import re
-                        match = re.search(r'[A-Z][a-z]{2}\s+\d{1,2},\s+\d{4}\s*-\s*(.+?)(?:Discover|More|Sun Sign|and personality|premium|$)', text, re.DOTALL)
-                        
-                        if match:
-                            horoscope_text = match.group(1).strip()
-                            # Remove any remaining junk at the end
-                            horoscope_text = re.sub(r'(Discover|More Horoscopes|Sun Sign|Love|Career|and personality|premium|Birth Chart|\.$\s*.+).*$', '', horoscope_text, flags=re.DOTALL)
-                            # Clean up extra periods and spaces
-                            horoscope_text = re.sub(r'\s+', ' ', horoscope_text)
-                            horoscope_text = re.sub(r'\.+', '.', horoscope_text)
-                            return horoscope_text.strip()
-                    
-                    # Fallback: look for paragraphs
-                    paragraphs = soup.find_all('p')
-                    for p in paragraphs:
-                        text = p.get_text(strip=True)
-                        # Look for horoscope-like text (complete sentences, reasonable length)
-                        if 100 < len(text) < 500 and '.' in text and not any(junk in text for junk in ['Sign up', 'Click here', 'Read more', '$', 'premium']):
-                            return text
-                    
-                    return None
-                else:
-                    print(f"Failed to fetch horoscope. Status code: {response.status}")
-                    return None
-    except Exception as e:
-        print(f"Error fetching horoscope: {e}")
-        return None
+        except Exception as e:
+            print(f"Error fetching from {url}: {e}")
+            continue
+    
+    # If we tried both URLs and neither worked
+    print("Could not find horoscope with matching date")
+    return None
 
 
 @bot.event
